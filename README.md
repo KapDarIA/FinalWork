@@ -286,3 +286,147 @@ namespace UserManagementApp
         }
     }
 }
+
+
+
+14:05
+
+
+
+
+using System;
+using Terminal.Gui;
+using UserManagementApp.Data;
+
+namespace UserManagementApp.Views
+{
+    public class UserManagerView
+    {
+        private UserStore userStore; // Хранилище пользователей
+        private Window window; // Окно управления пользователями
+        private ListView userListView; // Список пользователей
+        private TextField usernameField; // Поле для ввода имени пользователя
+        private TextField passwordField; // Поле для ввода пароля
+
+        // Конструктор для инициализации окна
+        public UserManagerView(UserStore userStore)
+        {
+            this.userStore = userStore;
+            Initialize(); // Вызов метода для инициализации UI
+        }
+
+        private void Initialize()
+        {
+            window = new Window("User Management")
+            {
+                X = 0,
+                Y = 1,
+                Width = Dim.Fill(),
+                Height = Dim.Fill()
+            };
+
+            var usernameLabel = new Label("Username:") { X = 1, Y = 1 };
+            usernameField = new TextField("") { X = 10, Y = 1, Width = 20 };
+
+            var passwordLabel = new Label("Password:") { X = 1, Y = 2 };
+            passwordField = new TextField("") { X = 10, Y = 2, Width = 20, Secret = true };
+
+            var addButton = new Button("Add User") { X = 10, Y = 3 };
+            var deleteButton = new Button("Delete User") { X = 10, Y = 4 };
+            var changePasswordButton = new Button("Change Password") { X = 10, Y = 5 };
+
+            userListView = new ListView(userStore.GetUsernames())
+            {
+                X = 1, Y = 7, Width = 30, Height = 10
+            };
+
+            addButton.Clicked += OnAddUserClicked;
+            deleteButton.Clicked += OnDeleteUserClicked;
+            changePasswordButton.Clicked += OnChangePasswordClicked;
+
+            window.Add(usernameLabel, usernameField, passwordLabel, passwordField, 
+                        addButton, deleteButton, changePasswordButton, userListView);
+            CreateUI();
+        }
+
+        private void CreateUI()
+        {
+            Application.Top.Add(window);
+        }
+
+        // Метод для добавления пользователя
+        private void OnAddUserClicked()
+        {
+            var username = usernameField.Text.ToString();
+            var password = passwordField.Text.ToString();
+
+            if (!userStore.AddUser(username, password))
+            {
+                MessageBox.ErrorQuery("Error", "User already exists!", "OK");
+            }
+            else
+            {
+                userListView.SetSource(userStore.GetUsernames());
+                MessageBox.Query("Success", "User added successfully!", "OK");
+            }
+
+            usernameField.Text = "";
+            passwordField.Text = "";
+        }
+
+        // Метод для удаления пользователя
+        private void OnDeleteUserClicked()
+        {
+            var selectedUser = userListView.SelectedItem;
+            if (selectedUser < 0)
+            {
+                MessageBox.ErrorQuery("Error", "Please select a user to delete!", "OK");
+                return;
+            }
+
+            var username = userListView.Source[selectedUser].ToString();
+            if (MessageBox.Query("Confirm", $"Are you sure you want to delete user {username}?", "Yes", "No") == 0) 
+            {
+                userStore.DeleteUser(username);
+                userListView.SetSource(userStore.GetUsernames());
+                MessageBox.Query("Success", "User deleted successfully!", "OK");
+            }
+        }
+
+        // Метод для изменения пароля
+        private void OnChangePasswordClicked()
+        {
+            var selectedUser = userListView.SelectedItem;
+            if (selectedUser < 0)
+            {
+                MessageBox.ErrorQuery("Error", "Please select a user to change password!", "OK");
+                return;
+            }
+
+            var username = userListView.Source[selectedUser].ToString();
+
+            // Создание нового окна для ввода пароля
+            var inputDialog = new Dialog("Change Password", 40, 7);
+            var newPasswordField = new TextField("") { Secret = true, X = 2, Y = 2, Width = 30 };
+            var confirmButton = new Button("OK") { X = 10, Y = 4 };
+            confirmButton.Clicked += () =>
+            {
+                if (!string.IsNullOrEmpty(newPasswordField.Text.ToString()))
+                {
+                    userStore.ChangePassword(username, newPasswordField.Text.ToString());
+                    MessageBox.Query("Success", "Password changed successfully!", "OK");
+                    userListView.SetSource(userStore.GetUsernames());
+                }
+                else
+                {
+                    MessageBox.ErrorQuery("Error", "Password cannot be empty!", "OK");
+                }
+                Application.RequestStop();
+            };
+
+            inputDialog.Add(new Label("Enter new password:") { X = 2, Y = 1 });
+            inputDialog.Add(newPasswordField, confirmButton);
+            Application.Run(inputDialog);
+        }
+    }
+}
